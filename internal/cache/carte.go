@@ -18,6 +18,7 @@ var axes = map[string]string{
 	"domaine":    "m.domaine",
 	"expediteur": "m.expediteur",
 	"titre":      "m.objet_norm",
+	"libelle":    "COALESCE(l.libelle, '')",
 	// Annee et mois en heure locale, comme les dates affichees (un message du
 	// 1er janvier a 0 h 30 a Paris est de la nouvelle annee).
 	"annee":        "strftime('%Y', m.date, 'unixepoch', 'localtime')",
@@ -48,6 +49,7 @@ type RequeteCarte struct {
 	Metrique string   `json:"metrique"`
 	Boite    string   `json:"boite"`   // "" : tous ; "recu", "envoye" ou "brouillon"
 	Lecture  string   `json:"lecture"` // "" : tous ; "nonlu" ou "lu"
+	PartMin  float64  `json:"partMin"` // part minimale d'un bloc visible ; 0 : pas de seuil
 }
 
 // Boites : valeurs du filtre global par boite.
@@ -143,6 +145,12 @@ func clauseDe(depart, boite, lecture string, chemin []Filtre) (string, []any) {
 		conds = append(conds, "m.lu = 1")
 	}
 	for _, f := range chemin {
+		if f.Axe == "libelle" {
+			cond, p := filtreLibelles(f)
+			conds = append(conds, cond)
+			params = append(params, p...)
+			continue
+		}
 		expr := axes[f.Axe]
 		if len(f.Exclure) > 0 {
 			conds = append(conds, expr+" NOT IN ("+strings.TrimSuffix(strings.Repeat("?,", len(f.Exclure)), ",")+")")
@@ -187,8 +195,12 @@ func (c *Cache) Carte(r RequeteCarte) (Niveau, error) {
 	axe := r.Axes[len(r.Chemin)]
 	n.Axe = axe
 	expr := axes[axe]
+	jointure := ""
+	if axe == "libelle" {
+		jointure = " LEFT JOIN libelles l ON l.uid = m.uid AND " + libellePersonnel
+	}
 	rows, err := c.db.Query("SELECT "+expr+" AS cle, COUNT(*) AS nombre, COALESCE(SUM(m.taille), 0) AS taille, MAX(m.nom_expediteur) "+
-		"FROM messages m"+ou+" GROUP BY cle ORDER BY "+ordre(r.Metrique), params...)
+		"FROM messages m"+jointure+ou+" GROUP BY cle ORDER BY "+ordre(r.Metrique)+", cle", params...)
 	if err != nil {
 		return n, err
 	}
@@ -214,12 +226,20 @@ func (c *Cache) Carte(r RequeteCarte) (Niveau, error) {
 	if err := rows.Err(); err != nil {
 		return n, err
 	}
+	if axe == "libelle" {
+		// Liberer la connexion avant de compter les messages du bloc « Autres ».
+		rows.Close()
+		n.Noeuds, err = c.regrouperLibelles(r, tous)
+		return n, err
+	}
 	n.Noeuds = regrouper(tous)
 	return n, nil
 }
 
 func libelle(axe, cle, nom string) string {
 	switch {
+	case cle == "" && axe == "libelle":
+		return "(sans libellé personnel)"
 	case cle == "" && axe == "titre":
 		return "(sans objet)"
 	case cle == "":

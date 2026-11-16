@@ -436,6 +436,7 @@ export namespace cache {
 	    metrique: string;
 	    boite: string;
 	    lecture: string;
+	    partMin: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RequeteCarte(source);
@@ -448,6 +449,7 @@ export namespace cache {
 	        this.metrique = source["metrique"];
 	        this.boite = source["boite"];
 	        this.lecture = source["lecture"];
+	        this.partMin = source["partMin"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

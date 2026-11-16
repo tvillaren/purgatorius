@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
 import { fmtTaille } from './format.js';
 
-export const AXES = ['domaine', 'expediteur', 'destinataire', 'titre', 'boite', 'categorie', 'annee', 'mois', 'tranche'];
+export const AXES = ['domaine', 'expediteur', 'destinataire', 'titre', 'libelle', 'boite', 'categorie', 'annee', 'mois', 'tranche'];
 
 // Libelle affiche d'une valeur d'axe.
 export function libelleValeur(axe, noeud) {
@@ -10,6 +10,7 @@ export function libelleValeur(axe, noeud) {
   if (axe === 'tranche') return t('tranche.' + noeud.cle);
   if (axe === 'boite') return t('boite.' + noeud.cle);
   if (axe === 'destinataire' && !noeud.cle) return t('carte.sansDestinataire');
+  if (axe === 'libelle' && !noeud.cle) return t('carte.sansLibelle');
   return noeud.libelle || noeud.cle;
 }
 
@@ -27,7 +28,8 @@ export const AIRE_MIN = 196;
 // rassemble les autres (et l'eventuel reste renvoye par le backend) en un
 // bloc « Autres », dont la liste d'exclusion permet d'y entrer.
 export function regrouper(niveau, aire, metrique) {
-  if (!niveau || niveau.axe === 'message' || !aire) return niveau;
+  // Les libelles sont regroupes cote Go pour dedoublonner le bloc « Autres ».
+  if (!niveau || niveau.axe === 'message' || niveau.axe === 'libelle' || !aire) return niveau;
   const total = metrique === 'nombre' ? niveau.nombre : niveau.taille;
   if (!total) return niveau;
   const garder = [];
