@@ -520,7 +520,10 @@ const part = computed(() => {
         <span>{{ avis }}</span>
         <button type="button" class="annuler" @click="avis = ''">{{ t('commun.compris') }}</button>
       </div>
-      <div v-if="!revue && niveau?.axe === 'libelle'" class="avis" role="status">{{ t('carte.chevauchementLibelles') }}</div>
+      <div v-if="!revue && niveau?.axe === 'libelle'" class="avis avis-libelles" role="status">
+        <span aria-hidden="true">⚠️</span>
+        <em>{{ t('carte.chevauchementLibelles') }}</em>
+      </div>
       <div class="carte">
         <ListeMessages v-if="revue" key="revue" purgatoire :compte-id="compte.id" :chemin="[]"
           :version="versionListe" :envoi="retrait" @retirer="retirerUids" @annuler="annulerRetrait" />
@@ -589,4 +592,8 @@ h1 { margin: 0; font-size: 16px; font-weight: 500; }
 .erreur { margin: 0; padding: 12px; border-radius: 10px; background: var(--erreur-doux); color: var(--erreur); }
 .avis { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 12px; border-radius: 10px; background: var(--releve); color: var(--txt); font-size: 13px; line-height: 20px; }
 .avis .annuler { flex-shrink: 0; }
+.avis-libelles { align-items: flex-start; justify-content: flex-start; gap: 8px; background: #fff9e9; color: #756442; }
+@media (prefers-color-scheme: dark) {
+  .avis-libelles { background: #302a1d; color: #c8b991; }
+}
 </style>
