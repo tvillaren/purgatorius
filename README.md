@@ -22,11 +22,6 @@ Deux usages, une seule vue, par bascule de la métrique de surface :
 - **libérer du quota** : surface = taille des messages ;
 - **désencombrer** : surface = nombre de messages.
 
-L'axe **Libellés** utilise les libellés personnels de Gmail, avec un groupe
-« Sans libellé personnel ». Un message peut apparaître dans plusieurs groupes :
-leurs nombres et tailles ne s'additionnent pas. Chaque groupe, y compris
-« Autres », les totaux et le Purgatoire comptent chaque message une seule fois.
-
 ## Aperçu
 
 <p align="center">
