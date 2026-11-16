@@ -1,0 +1,16 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Purgatorius",
+  "outputfilename": "Purgatorius",
+  "frontend:install": "npm ci",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Benoît DESNOS",
+    "email": "desnos.benoit@gmail.com"
+  },
+  "info": {
+    "productName": "Purgatorius"
+  }
+}

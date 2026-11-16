@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Icone de Purgatorius : carreau aux proportions des icones macOS
+       (824 px dans 1024, rayon 185) et logo a quatre parcelles, en aplats. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#FAFAFA"/>
+  <rect x="101" y="101" width="822" height="822" rx="184" fill="none" stroke="rgba(23,23,23,0.10)" stroke-width="2"/>
+  <g transform="translate(239.6 239.6) scale(12.38)">
+    <rect x="1" y="1" width="20" height="42" rx="4" fill="#FBBF24"/>
+    <rect x="23" y="1" width="20" height="24" rx="4" fill="#60A5FA"/>
+    <rect x="23" y="27" width="9" height="16" rx="3" fill="#2DD4BF"/>
+    <rect x="34" y="27" width="9" height="16" rx="3" fill="#A78BFA"/>
+  </g>
+</svg>

@@ -1,0 +1,202 @@
+name: Release
+
+# Declenche par un tag de version (ex : v1.0.0). Teste et compile un binaire
+# par OS, puis publie la release GitHub avec les binaires et leurs sommes de
+# controle (SHA256SUMS). Une release deja publiee n'est jamais modifiee par ce
+# workflow. macOS : app universelle (Intel et Apple Silicon) livree en image
+# disque (.dmg, glisser dans Applications).
+#
+# Securite : les jobs de compilation executent du code tiers (dependances npm,
+# outils Go) et n'ont donc QUE la lecture du depot ; ils passent leurs binaires
+# par artefact. Seul le dernier job, qui n'execute aucun code du projet ni de
+# ses dependances, a le droit d'ecrire (creer la release).
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  WAILS_VERSION: v2.17.1
+
+permissions:
+  contents: read
+
+jobs:
+  compiler:
+    name: compiler (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux : construit sur la plus ancienne Ubuntu supportee (glibc 2.35)
+          # pour tourner aussi sur Ubuntu 22.04 et Debian 12.
+          - name: linux-amd64
+            runner: ubuntu-22.04
+            tags: -tags webkit2_41
+            build: wails build -clean -tags webkit2_41
+            asset: purgatorius-linux-amd64.tar.gz
+          - name: linux-arm64
+            runner: ubuntu-22.04-arm
+            tags: -tags webkit2_41
+            build: wails build -clean -tags webkit2_41
+            asset: purgatorius-linux-arm64.tar.gz
+          - name: windows-amd64
+            runner: windows-latest
+            build: wails build -clean
+            asset: purgatorius-windows-amd64.exe
+          # Windows ARM : compilation croisee depuis le runner x64 (sans cgo).
+          # Les tests n'y sont pas rejoues : ils tournent deja sur
+          # windows-amd64, sur la meme machine.
+          - name: windows-arm64
+            runner: windows-latest
+            build: wails build -clean -platform windows/arm64
+            asset: purgatorius-windows-arm64.exe
+            croise: true
+          - name: macos
+            runner: macos-latest
+            build: wails build -clean -platform darwin/universal
+            asset: Purgatorius-macos.dmg
+
+    steps:
+      # Actions designees par l'empreinte de leur commit (la version en
+      # commentaire) : une etiquette comme v7 peut etre deplacee vers un autre
+      # code. Le jeton n'est pas garde dans .git/config apres le checkout.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod # version figee, celle du depot
+          # Sans cache : rien d'une execution anterieure (modules, objets
+          # compiles) n'entre dans un binaire publie.
+          cache: false
+
+      - name: Dependances systeme (Linux)
+        if: startsWith(matrix.name, 'linux')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Installer le CLI Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      # Version des binaires (Info.plist macOS, proprietes et manifeste Windows)
+      # = celle du tag. Format strict x.y.z : le manifeste Windows exige des
+      # nombres (il y ajoute ".0").
+      - name: Version depuis le tag
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            const v = process.env.GITHUB_REF_NAME.replace(/^v/, "");
+            if (!/^\d+\.\d+\.\d+$/.test(v)) { console.error("tag hors format vX.Y.Z : " + v); process.exit(1); }
+            const j = JSON.parse(fs.readFileSync("wails.json", "utf8"));
+            j.info.productVersion = v;
+            fs.writeFileSync("wails.json", JSON.stringify(j, null, 2) + "\n");
+            console.log("productVersion = " + v);
+          '
+
+      # Rien n'est publie sans que les tests aient passe sur le systeme de
+      # chaque binaire (frontend/dist/gitkeep suffit a l'embarquement).
+      - name: Tests Go
+        if: ${{ !matrix.croise }}
+        run: go test ${{ matrix.tags }} ./...
+
+      # wails.json : frontend:install = npm ci (versions exactes du
+      # package-lock.json).
+      - name: Build
+        run: ${{ matrix.build }}
+
+      # Renommage / empaquetage de la sortie (build/bin) au nom d'asset attendu.
+      # Linux : binaire + lanceur .desktop + icone (voir README pour l'installation).
+      - name: Empaqueter (Linux)
+        if: startsWith(matrix.name, 'linux')
+        run: |
+          mkdir -p paquet/purgatorius
+          mv build/bin/Purgatorius paquet/purgatorius/purgatorius
+          cp build/linux/purgatorius.desktop paquet/purgatorius/
+          cp build/appicon.png paquet/purgatorius/purgatorius.png
+          tar -C paquet -czf "${{ matrix.asset }}" purgatorius
+
+      - name: Empaqueter (Windows)
+        if: startsWith(matrix.name, 'windows')
+        shell: bash
+        run: mv build/bin/Purgatorius.exe "${{ matrix.asset }}"
+
+      - name: Empaqueter (macOS)
+        if: matrix.name == 'macos'
+        run: scripts/dmg.sh "${{ matrix.asset }}"
+
+      # Artefact non zippe (archive: false) : le fichier tel quel.
+      - name: Transmettre le binaire
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ matrix.asset }}
+          archive: false
+          if-no-files-found: error
+
+  # Seul job en ecriture : recupere les binaires, calcule leurs sommes de
+  # controle et publie la release. Aucun checkout, aucune dependance du projet
+  # n'y est executee.
+  publier:
+    name: publication de la release
+    needs: compiler
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # v8 : sait recuperer les artefacts non zippes (archive: false) ; une
+      # empreinte qui ne correspond pas fait echouer le job.
+      - name: Recuperer les binaires
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: binaires
+          merge-multiple: true
+
+      - name: Sommes de controle
+        working-directory: binaires
+        run: |
+          find . -mindepth 2 -type f -exec mv {} . \;
+          find . -mindepth 1 -type d -empty -delete
+          ls -la
+          test "$(ls | wc -l)" -eq 5
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+
+      # Release creee avec ses binaires puis publiee (gh la garde en brouillon
+      # le temps d'envoyer les fichiers : jamais de release publiee
+      # incomplete). Un brouillon laisse par une execution interrompue est
+      # complete (--clobber) puis publie. Une release deja publiee n'est pas
+      # touchee : ses fichiers ont pu etre telecharges et verifies
+      # (SHA256SUMS) ; le job echoue. Etat lu dans la liste des releases, qui
+      # comprend les brouillons (la recherche par tag de l'API ne renvoie que
+      # les releases publiees).
+      - name: Publier la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag hors format vX.Y.Z : $GITHUB_REF_NAME"
+            exit 1
+          fi
+          brouillons=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .draft")
+          echo "releases du tag (brouillon ?) : ${brouillons:-aucune}"
+          if grep -qx false <<<"$brouillons"; then
+            echo "::error::la release $GITHUB_REF_NAME est deja publiee : ses fichiers ne sont pas remplaces"
+            exit 1
+          elif [ -n "$brouillons" ]; then
+            gh release upload "$GITHUB_REF_NAME" binaires/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          else
+            gh release create "$GITHUB_REF_NAME" binaires/* --repo "$GITHUB_REPOSITORY" --title "Purgatorius $GITHUB_REF_NAME" --verify-tag --latest
+          fi

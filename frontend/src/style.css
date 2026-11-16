@@ -1,0 +1,108 @@
+/* Jetons de la direction A1 (affinee avec unslop) : rampe graphite, un accent
+   bleu encre, chiffres en IBM Plex Mono. Le theme suit le systeme. */
+:root {
+  color-scheme: light dark;
+  --bg: #fafafa;
+  --flanc: #ffffff;
+  --carte: #ffffff;
+  --releve: #f4f4f5;
+  --trait: rgba(23, 23, 23, 0.08);
+  --champ-bord: rgba(23, 23, 23, 0.16);
+  --txt: #171717;
+  --sec: #525252;
+  --muet: #737373;
+  --acc: #2a4fb8;
+  --acc-doux: rgba(42, 79, 184, 0.06);
+  --acc-selection: #e6ecfa;
+  --jauge-nombre: #b36b00;
+  --lien: #2a4fb8;
+  --btn: #2a4fb8;
+  --btn-txt: #ffffff;
+  --ok: #16a34a;
+  --erreur: #dc2626;
+  --erreur-doux: rgba(220, 38, 38, 0.06);
+  --ombre: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --ombre-petite: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --sans: "Inter Variable", Inter, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --courbe: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141415;
+    --flanc: #0f0f10;
+    --carte: #19191b;
+    --releve: #232325;
+    --trait: rgba(237, 237, 237, 0.08);
+    --champ-bord: rgba(237, 237, 237, 0.14);
+    --txt: #ededed;
+    --sec: #a1a1a6;
+    --muet: #85858b;
+    --acc: #8ea6f2;
+    --acc-doux: rgba(142, 166, 242, 0.1);
+    --acc-selection: #252c42;
+    --jauge-nombre: #e9a23b;
+    --lien: #a9bcf6;
+    --btn: #ededed;
+    --btn-txt: #141415;
+    --ok: #4cc38a;
+    --erreur: #e5484d;
+    --erreur-doux: rgba(229, 72, 77, 0.1);
+    --ombre: none;
+    --ombre-petite: none;
+  }
+}
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { min-height: 100vh; }
+
+a { color: var(--lien); }
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: 0.55; }
+
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 0;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 150ms var(--courbe), opacity 150ms var(--courbe), transform 120ms var(--courbe);
+}
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn-principal { background: var(--btn); color: var(--btn-txt); }
+.btn-secondaire { background: var(--releve); color: var(--txt); box-shadow: inset 0 0 0 1px var(--trait); }
+
+.champ {
+  font: inherit;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--champ-bord);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--txt);
+  background: var(--carte);
+  box-sizing: border-box;
+}
+
+.etiquette { font-size: 14px; font-weight: 500; }
+.aide { font-size: 13px; color: var(--muet); }

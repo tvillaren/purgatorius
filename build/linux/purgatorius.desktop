@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Purgatorius
+Comment=Ménage d'une boîte Gmail en treemap
+Comment[en]=Gmail mailbox cleanup with a treemap
+Exec=purgatorius
+Icon=purgatorius
+Terminal=false
+Categories=Network;Email;Utility;
+StartupWMClass=purgatorius
