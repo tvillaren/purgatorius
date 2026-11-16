@@ -16,7 +16,7 @@ import PanneauDetail from '../composants/PanneauDetail.vue';
 import BilanPurgatoire from '../composants/BilanPurgatoire.vue';
 import PileAxes from '../composants/PileAxes.vue';
 import MenuCompte from '../composants/MenuCompte.vue';
-import { libelleValeur, regrouper, valeurMetrique } from '../axes.js';
+import { AIRE_MIN, libelleValeur, regrouper, valeurMetrique } from '../axes.js';
 import { couleurBloc } from '../couleurs.js';
 import { t } from '../i18n.js';
 import { fmtDate, fmtNombre, fmtTaille } from '../format.js';
@@ -82,7 +82,7 @@ async function charger() {
   memoire.clear();
   const demande = { chemin: chemin.value, boite: boite.value, lecture: lecture.value };
   try {
-    const r = await Carte(props.compte.id, { axes: axes.value, chemin: filtres(demande.chemin), metrique: metrique.value, boite: demande.boite, lecture: demande.lecture });
+    const r = await Carte(props.compte.id, { axes: axes.value, chemin: filtres(demande.chemin), metrique: metrique.value, boite: demande.boite, lecture: demande.lecture, partMin: aire.value ? AIRE_MIN / aire.value : 0 });
     if (n !== jeton) return;
     niveau.value = r;
     contexte = demande;
@@ -325,6 +325,7 @@ function touche(ev) {
 watch(choix, chargerDetail);
 watch(axes, () => { chemin.value = []; charger(); });
 watch([metrique, boite, lecture], charger);
+watch(aire, () => { if (niveau.value?.axe === 'libelle') charger(); });
 watch(() => props.compte.id, () => { chemin.value = []; envoi.value = null; retrait.value = null; avis.value = ''; charger(); chargerPurgatoire(); verifierMisDeCote(); });
 watch(chemin, () => { envoi.value = null; });
 
@@ -519,6 +520,7 @@ const part = computed(() => {
         <span>{{ avis }}</span>
         <button type="button" class="annuler" @click="avis = ''">{{ t('commun.compris') }}</button>
       </div>
+      <div v-if="!revue && niveau?.axe === 'libelle'" class="avis" role="status">{{ t('carte.chevauchementLibelles') }}</div>
       <div class="carte">
         <ListeMessages v-if="revue" key="revue" purgatoire :compte-id="compte.id" :chemin="[]"
           :version="versionListe" :envoi="retrait" @retirer="retirerUids" @annuler="annulerRetrait" />
