@@ -14,64 +14,135 @@ function remplacerStockage(t, lire) {
   });
 }
 
-test('restaure les reglages et l’ordre des axes apres chaque sauvegarde', (t) => {
+test('restaure les reglages et l’ordre des axes sauvegardes', (t) => {
+  // Etant donne
   const valeurs = new Map();
   remplacerStockage(t, () => ({
     getItem: (cle) => valeurs.get(cle) ?? null,
     setItem: (cle, valeur) => valeurs.set(cle, valeur),
   }));
-  assert.deepEqual(lireReglagesCarte(), defauts);
+  const attendus = { axes: ['libelle', 'annee', 'expediteur'], metrique: 'nombre', boite: 'envoye', lecture: 'nonlu' };
 
-  const reglages = { axes: ['libelle', 'annee', 'expediteur'], metrique: 'nombre', boite: 'envoye', lecture: 'nonlu' };
-  ecrireReglagesCarte({ ...reglages, chemin: ['Factures'], selection: 42 });
-  assert.deepEqual(lireReglagesCarte(), reglages);
-  assert.deepEqual(JSON.parse(valeurs.get('purgatorius.carte')), reglages);
+  // Quand
+  ecrireReglagesCarte({ ...attendus, chemin: ['Factures'], selection: 42 });
+  const reglages = lireReglagesCarte();
 
-  reglages.axes = ['expediteur', 'libelle'];
-  reglages.metrique = 'taille';
-  reglages.boite = 'recu';
-  reglages.lecture = 'lu';
-  ecrireReglagesCarte(reglages);
-  assert.deepEqual(lireReglagesCarte(), reglages);
+  // Alors
+  assert.deepEqual(reglages, attendus);
+  assert.deepEqual(JSON.parse(valeurs.get('purgatorius.carte')), attendus);
+});
 
-  reglages.boite = '';
-  reglages.lecture = '';
-  ecrireReglagesCarte(reglages);
-  assert.deepEqual(lireReglagesCarte(), reglages);
+test('remplace les anciens reglages par les nouveaux', (t) => {
+  // Etant donne
+  const anciens = { axes: ['libelle', 'annee', 'expediteur'], metrique: 'nombre', boite: 'envoye', lecture: 'nonlu' };
+  const valeurs = new Map([['purgatorius.carte', JSON.stringify(anciens)]]);
+  remplacerStockage(t, () => ({
+    getItem: (cle) => valeurs.get(cle) ?? null,
+    setItem: (cle, valeur) => valeurs.set(cle, valeur),
+  }));
+  const attendus = { axes: ['expediteur', 'libelle'], metrique: 'taille', boite: 'recu', lecture: 'lu' };
+
+  // Quand
+  ecrireReglagesCarte(attendus);
+  const reglages = lireReglagesCarte();
+
+  // Alors
+  assert.deepEqual(reglages, attendus);
+});
+
+test('memorise le retrait des filtres de boite et de lecture', (t) => {
+  // Etant donne
+  const anciens = { axes: ['expediteur', 'libelle'], metrique: 'taille', boite: 'recu', lecture: 'lu' };
+  const valeurs = new Map([['purgatorius.carte', JSON.stringify(anciens)]]);
+  remplacerStockage(t, () => ({
+    getItem: (cle) => valeurs.get(cle) ?? null,
+    setItem: (cle, valeur) => valeurs.set(cle, valeur),
+  }));
+  const attendus = { ...anciens, boite: '', lecture: '' };
+
+  // Quand
+  ecrireReglagesCarte(attendus);
+  const reglages = lireReglagesCarte();
+
+  // Alors
+  assert.deepEqual(reglages, attendus);
 });
 
 test('retire les axes inconnus et les doublons en conservant leur ordre', (t) => {
+  // Etant donne
   remplacerStockage(t, () => ({ getItem: () => JSON.stringify({
     axes: ['ancien', 'libelle', null, 'annee', 'libelle', 12, 'message'],
     metrique: 'nombre', boite: 'inconnue', lecture: 'lu',
   }) }));
-  assert.deepEqual(lireReglagesCarte(), { axes: ['libelle', 'annee'], metrique: 'nombre', boite: '', lecture: 'lu' });
+
+  // Quand
+  const reglages = lireReglagesCarte();
+
+  // Alors
+  assert.deepEqual(reglages, { axes: ['libelle', 'annee'], metrique: 'nombre', boite: '', lecture: 'lu' });
 });
 
-test('reprend les valeurs par defaut pour des donnees absentes ou invalides', (t) => {
-  let valeur;
-  remplacerStockage(t, () => ({ getItem: () => valeur }));
-  for (valeur of [null, '{', 'null', 'false', '42', '"texte"', '[]', '{}',
-    '{"axes":[]}', '{"axes":["ancien"]}',
-    '{"axes":"libelle","metrique":{},"boite":true,"lecture":12}']) {
-    assert.deepEqual(lireReglagesCarte(), defauts, String(valeur));
-  }
-  // Modifier les axes relus ne doit pas modifier les valeurs par defaut.
-  lireReglagesCarte().axes.reverse();
-  assert.deepEqual(lireReglagesCarte(), defauts);
+for (const [nom, valeur] of [
+  ['stockage vide', null],
+  ['JSON mal forme', '{'],
+  ['valeur nulle', 'null'],
+  ['booleen', 'false'],
+  ['nombre', '42'],
+  ['texte', '\"texte\"'],
+  ['tableau', '[]'],
+  ['objet vide', '{}'],
+  ['axes vides', '{"axes":[]}'],
+  ['axes obsoletes', '{"axes":["ancien"]}'],
+  ['types incorrects', '{"axes":"libelle","metrique":{},"boite":true,"lecture":12}'],
+]) {
+  test(`reprend les valeurs par defaut : ${nom}`, (t) => {
+    // Etant donne
+    remplacerStockage(t, () => ({ getItem: () => valeur }));
+
+    // Quand
+    const reglages = lireReglagesCarte();
+
+    // Alors
+    assert.deepEqual(reglages, defauts);
+  });
+}
+
+test('modifier les axes relus ne change pas les valeurs par defaut', (t) => {
+  // Etant donne
+  remplacerStockage(t, () => ({ getItem: () => null }));
+  const precedents = lireReglagesCarte();
+
+  // Quand
+  precedents.axes.reverse();
+  const reglages = lireReglagesCarte();
+
+  // Alors
+  assert.deepEqual(reglages, defauts);
 });
 
 test('supporte un acces au stockage refuse par le navigateur', (t) => {
+  // Etant donne
   remplacerStockage(t, () => { throw new Error('Acces refuse'); });
-  assert.deepEqual(lireReglagesCarte(), defauts);
-  assert.doesNotThrow(() => ecrireReglagesCarte(defauts));
+
+  // Quand
+  ecrireReglagesCarte(defauts);
+  const reglages = lireReglagesCarte();
+
+  // Alors
+  assert.deepEqual(reglages, defauts);
 });
 
 test('supporte un echec de lecture ou un quota de stockage depasse', (t) => {
+  // Etant donne
   remplacerStockage(t, () => ({
     getItem: () => { throw new Error('Lecture impossible'); },
     setItem: () => { throw new Error('Quota depasse'); },
   }));
-  assert.deepEqual(lireReglagesCarte(), defauts);
-  assert.doesNotThrow(() => ecrireReglagesCarte(defauts));
+
+  // Quand
+  ecrireReglagesCarte(defauts);
+  const reglages = lireReglagesCarte();
+
+  // Alors
+  assert.deepEqual(reglages, defauts);
 });
