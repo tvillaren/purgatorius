@@ -20,15 +20,21 @@ import { AIRE_MIN, libelleValeur, regrouper, valeurMetrique } from '../axes.js';
 import { couleurBloc } from '../couleurs.js';
 import { t } from '../i18n.js';
 import { fmtDate, fmtNombre, fmtTaille } from '../format.js';
+import { lireReglagesCarte, ecrireReglagesCarte } from '../preferencesCarte.js';
 
 const props = defineProps({ etat: { type: Object, required: true }, compte: { type: Object, required: true } });
 const emit = defineEmits(['choisir', 'ajouter', 'synchroniser', 'recharger']);
 
-const axes = ref(['domaine', 'expediteur']);
-const metrique = ref('taille');
-const boite = ref(''); // '' : tous ; 'recu' ; 'envoye'
-const lecture = ref(''); // '' : tous ; 'nonlu' ; 'lu'
+const reglages = lireReglagesCarte();
+const axes = ref(reglages.axes);
+const metrique = ref(reglages.metrique);
+const boite = ref(reglages.boite); // '' : tous ; 'recu' ; 'envoye'
+const lecture = ref(reglages.lecture); // '' : tous ; 'nonlu' ; 'lu'
 const menuCompte = ref(''); // compte dont le menu est ouvert
+
+watch([axes, metrique, boite, lecture], () => {
+  ecrireReglagesCarte({ axes: axes.value, metrique: metrique.value, boite: boite.value, lecture: lecture.value });
+}, { deep: true });
 
 // Panneaux repliables (memorises dans ce navigateur integre ; facultatif).
 function lirePref(cle, defaut) { try { const v = localStorage.getItem(cle); return v === null ? defaut : v === '1'; } catch (_) { return defaut; } }
